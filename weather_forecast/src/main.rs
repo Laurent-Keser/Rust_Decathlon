@@ -38,6 +38,7 @@ async fn display_menu() {
         "Display the daily weather forecast of 10 Belgian cities",
         "Display the daily weather forecast of a city from the list",
         "Display the daily weather forecast from another city",
+        "Display the weather forecast for tomorrow and the day after tomorrow from another city",
     ];
 
     for (index, option) in options.iter().enumerate() {
@@ -58,6 +59,7 @@ async fn display_menu() {
                         0 => task1(&client, &api_key).await,
                         1 => task2(&client, &api_key).await,
                         2 => task2_new_city(&client, &api_key).await,
+                        3 => task2_tomorrow(&client, &api_key).await,
                         _ => task1(&client, &api_key).await,
                     }
                     break;
@@ -122,7 +124,7 @@ async fn task1(client: &Client, api_key: &str) {
         let forecast_result = forecast::get_weather_data(&client, &api_key, city)
             .await
             .unwrap();
-        forecast::print_forecast(forecast_result);
+        forecast::print_forecast(&forecast_result);
     }
 }
 
@@ -149,7 +151,7 @@ async fn task2(client: &Client, api_key: &str) {
         .await
         .unwrap();
 
-    forecast::print_forecast(forecast_result);
+    forecast::print_forecast(&forecast_result);
 }
 async fn task2_new_city(client: &Client, api_key: &str) {
     let mut input = String::new();
@@ -165,7 +167,41 @@ async fn task2_new_city(client: &Client, api_key: &str) {
 
         match forecast_result {
             Ok(forecast) => {
-                forecast::print_forecast(forecast);
+                forecast::print_forecast(&forecast);
+                break;
+            }
+            Err(err) => {
+                println!("{}", err);
+                println!("The city doesn't exist !");
+            }
+        }
+    }
+}
+
+async fn task2_tomorrow(client: &Client, api_key: &str) {
+    let mut input = String::new();
+
+    loop {
+        println!("\nWrite down a city to display its weather forecast: ");
+        input.clear();
+        io::stdin().read_line(&mut input).unwrap();
+        println!("");
+        let selected_city = input.trim();
+        let forecast_result =
+            forecast::get_weather_data_tomorrow(&client, &api_key, &selected_city).await;
+
+        match forecast_result {
+            Ok(forecast) => {
+                // Print each forecast
+                println!("[TODAY]");
+                forecast::print_forecast(&forecast[0]);
+
+                println!("[TOMORROW]");
+                forecast::print_forecast(&forecast[1]);
+
+                println!("[AFTER TOMORROW]");
+                forecast::print_forecast(&forecast[2]);
+
                 break;
             }
             Err(err) => {

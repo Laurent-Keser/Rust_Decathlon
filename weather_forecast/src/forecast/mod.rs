@@ -1,3 +1,4 @@
+use chrono::prelude::*;
 use reqwest::Client;
 use std::error::Error;
 
@@ -8,6 +9,7 @@ pub struct WeatherData {
     pub temperature: f64,
     pub humidity: i64,
     pub wind: f64,
+    pub time: String,
 }
 
 /**
@@ -26,6 +28,20 @@ pub fn get_cities() -> Vec<&'static str> {
         "Dinant",
         "Nivelles",
     ];
+}
+
+/**
+ * Prints the forecast based on the given weather data.
+ */
+pub fn print_forecast(forecast: &WeatherData) {
+    println!("Weather in {} :", forecast.city);
+    println!("\t- Time: {}", forecast.time);
+    println!("\t- Weather: {}", forecast.weather);
+    println!("\t- Description: {}", forecast.description);
+    println!("\t- Temperature: {:.2} °C", forecast.temperature); // 2 decimals
+    println!("\t- Humidity: {} %", forecast.humidity);
+    println!("\t- Wind speed: {:.2} m/s", forecast.wind);
+    println!();
 }
 
 /**
@@ -59,6 +75,7 @@ pub async fn get_weather_data(
                         let temperature = forecast["main"]["temp"].as_f64().unwrap();
                         let humidity = forecast["main"]["humidity"].as_i64().unwrap();
                         let wind = forecast["wind"]["speed"].as_f64().unwrap();
+                        let time = Local::now().to_string();
 
                         let weather_data = WeatherData {
                             city,
@@ -67,6 +84,7 @@ pub async fn get_weather_data(
                             temperature,
                             humidity,
                             wind,
+                            time,
                         };
 
                         return Ok(weather_data);
@@ -85,19 +103,6 @@ pub async fn get_weather_data(
             return Err(err);
         }
     }
-}
-
-/**
- * Prints the forecast based on the given weather data.
- */
-pub fn print_forecast(forecast: WeatherData) {
-    println!("Weather in {} :", forecast.city);
-    println!("\t- Weather: {}", forecast.weather);
-    println!("\t- Description: {}", forecast.description);
-    println!("\t- Temperature: {:.2} °C", forecast.temperature); // 2 decimals
-    println!("\t- Humidity: {} %", forecast.humidity);
-    println!("\t- Wind speed: {:.2} m/s", forecast.wind);
-    println!();
 }
 
 /**
@@ -131,6 +136,7 @@ pub async fn get_weather_data_unknown(
                         let temperature = forecast["main"]["temp"].as_f64().unwrap();
                         let humidity = forecast["main"]["humidity"].as_i64().unwrap();
                         let wind = forecast["wind"]["speed"].as_f64().unwrap();
+                        let time = Local::now().to_string();
 
                         let weather_data = WeatherData {
                             city,
@@ -139,9 +145,81 @@ pub async fn get_weather_data_unknown(
                             temperature,
                             humidity,
                             wind,
+                            time,
                         };
 
                         return Ok(weather_data);
+                    }
+                    Err(err) => {
+                        println!("Error in the parsing of the json response: {:?}", err);
+                        return Err(err.into());
+                    }
+                }
+            } else {
+                let error = format!("Error status of the request : {}", api_response.status());
+                return Err(error.into());
+            }
+        }
+        Err(err) => {
+            println!("Error in the request: {:?}", err);
+            return Err(err.into());
+        }
+    }
+}
+
+pub async fn get_weather_data_tomorrow(
+    client: &Client,
+    api_key: &str,
+    city: &str,
+) -> Result<Vec<WeatherData>, Box<dyn Error>> {
+    let url = format!(
+        "https://api.openweathermap.org/data/2.5/forecast?q={}&appid={}&units=metric&cnt=17",
+        city, api_key
+    );
+    let response = client.get(&url).send().await;
+
+    match response {
+        Ok(api_response) => {
+            if api_response.status().is_success() {
+                //  println!("{}", api_response.status());
+
+                let result = api_response.json::<serde_json::Value>().await;
+                match result {
+                    Ok(result) => {
+                        // 0 - 8 - 16 to have 24 hours between each forecast
+                        let mut count = 0;
+                        let mut forecasts = Vec::new();
+
+                        while count <= 16 {
+                            let forecast = &result["list"][count];
+
+                            let city = city.to_string();
+                            let weather =
+                                forecast["weather"][0]["main"].as_str().unwrap().to_string();
+                            let description = forecast["weather"][0]["description"]
+                                .as_str()
+                                .unwrap()
+                                .to_string();
+                            let temperature = forecast["main"]["temp"].as_f64().unwrap();
+                            let humidity = forecast["main"]["humidity"].as_i64().unwrap();
+                            let wind = forecast["wind"]["speed"].as_f64().unwrap();
+                            let time = forecast["dt_txt"].as_str().unwrap().to_string();
+
+                            let weather_data = WeatherData {
+                                city,
+                                weather,
+                                description,
+                                temperature,
+                                humidity,
+                                wind,
+                                time,
+                            };
+
+                            forecasts.push(weather_data);
+                            count += 8;
+                        }
+
+                        return Ok(forecasts);
                     }
                     Err(err) => {
                         println!("Error in the parsing of the json response: {:?}", err);
