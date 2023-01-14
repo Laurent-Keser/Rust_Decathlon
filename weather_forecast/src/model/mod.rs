@@ -1,11 +1,11 @@
 extern crate dotenv; // .env file (API_KEY)
+use crate::view::print_forecast;
 use chrono::prelude::*;
 use dotenv::dotenv;
 use reqwest::Client;
+use serde_json::Value;
 use std::error::Error;
 use std::io;
-
-use crate::view::print_forecast;
 
 // ========== DATA ==========
 
@@ -17,6 +17,23 @@ pub struct WeatherData {
     pub humidity: i64,
     pub wind: f64,
     pub time: String,
+}
+
+impl WeatherData {
+    pub fn new(forecast: &Value, city: String, time: String) -> WeatherData {
+        WeatherData {
+            city,
+            weather: forecast["weather"][0]["main"].as_str().unwrap().to_string(),
+            description: forecast["weather"][0]["description"]
+                .as_str()
+                .unwrap()
+                .to_string(),
+            temperature: forecast["main"]["temp"].as_f64().unwrap(),
+            humidity: forecast["main"]["humidity"].as_i64().unwrap(),
+            wind: forecast["wind"]["speed"].as_f64().unwrap(),
+            time,
+        }
+    }
 }
 
 /**
@@ -198,26 +215,8 @@ pub async fn get_current_weather_data(
                 let result = api_response.json::<serde_json::Value>().await;
                 match result {
                     Ok(forecast) => {
-                        let city = city.to_string();
-                        let weather = forecast["weather"][0]["main"].as_str().unwrap().to_string();
-                        let description = forecast["weather"][0]["description"]
-                            .as_str()
-                            .unwrap()
-                            .to_string();
-                        let temperature = forecast["main"]["temp"].as_f64().unwrap();
-                        let humidity = forecast["main"]["humidity"].as_i64().unwrap();
-                        let wind = forecast["wind"]["speed"].as_f64().unwrap();
-                        let time = Local::now().to_string();
-
-                        let weather_data = WeatherData {
-                            city,
-                            weather,
-                            description,
-                            temperature,
-                            humidity,
-                            wind,
-                            time,
-                        };
+                        let weather_data =
+                            WeatherData::new(&forecast, city.to_string(), Local::now().to_string());
 
                         return Ok(weather_data);
                     }
@@ -265,27 +264,8 @@ pub async fn get_next_days_weather_data(
                         while count <= 16 {
                             let forecast = &result["list"][count];
 
-                            let city = city.to_string();
-                            let weather =
-                                forecast["weather"][0]["main"].as_str().unwrap().to_string();
-                            let description = forecast["weather"][0]["description"]
-                                .as_str()
-                                .unwrap()
-                                .to_string();
-                            let temperature = forecast["main"]["temp"].as_f64().unwrap();
-                            let humidity = forecast["main"]["humidity"].as_i64().unwrap();
-                            let wind = forecast["wind"]["speed"].as_f64().unwrap();
                             let time = forecast["dt_txt"].as_str().unwrap().to_string();
-
-                            let weather_data = WeatherData {
-                                city,
-                                weather,
-                                description,
-                                temperature,
-                                humidity,
-                                wind,
-                                time,
-                            };
+                            let weather_data = WeatherData::new(forecast, city.to_string(), time);
 
                             forecasts.push(weather_data);
                             count += 8;

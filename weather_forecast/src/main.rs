@@ -1,5 +1,6 @@
 // Module import
-mod forecast;
+mod controller;
+mod model;
 mod view;
 
 /**
@@ -7,5 +8,5 @@ mod view;
  */
 #[tokio::main]
 async fn main() {
-    view::display_menu().await;
+    controller::start().await;
 }
