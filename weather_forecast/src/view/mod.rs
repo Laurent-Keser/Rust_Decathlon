@@ -40,11 +40,11 @@ pub async fn display_menu() {
             Ok(index) => {
                 if index > 0 && index <= options.len() {
                     match index - 1 {
-                        0 => forecast::task1(&client, &api_key).await,
-                        1 => forecast::task2(&client, &api_key).await,
-                        2 => forecast::task2_new_city(&client, &api_key).await,
-                        3 => forecast::task2_tomorrow(&client, &api_key).await,
-                        _ => forecast::task1(&client, &api_key).await,
+                        0 => forecast::all_cities_weather(&client, &api_key).await,
+                        1 => forecast::selected_city_weather(&client, &api_key).await,
+                        2 => forecast::new_city_weather(&client, &api_key).await,
+                        3 => forecast::next_days_weather(&client, &api_key).await,
+                        _ => forecast::all_cities_weather(&client, &api_key).await,
                     }
                     break;
                 } else {
