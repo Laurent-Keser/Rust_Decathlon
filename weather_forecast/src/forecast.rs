@@ -1,4 +1,5 @@
 use reqwest::Client;
+use std::error::Error;
 
 pub struct WeatherData {
     pub city: String,
@@ -97,4 +98,64 @@ pub fn print_forecast(forecast: WeatherData) {
     println!("\t- Humidity: {} %", forecast.humidity);
     println!("\t- Wind speed: {:.2} m/s", forecast.wind);
     println!();
+}
+
+/**
+ * Gets the weather forecast of the given city.
+ */
+pub async fn get_weather_data_unknown(
+    client: &Client,
+    api_key: &str,
+    city: &str,
+) -> Result<WeatherData, Box<dyn Error>> {
+    let url = format!(
+        "https://api.openweathermap.org/data/2.5/weather?q={}&appid={}&units=metric",
+        city, api_key
+    );
+    let response = client.get(&url).send().await;
+
+    match response {
+        Ok(api_response) => {
+            if api_response.status().is_success() {
+                //  println!("{}", api_response.status());
+
+                let result = api_response.json::<serde_json::Value>().await;
+                match result {
+                    Ok(forecast) => {
+                        let city = city.to_string();
+                        let weather = forecast["weather"][0]["main"].as_str().unwrap().to_string();
+                        let description = forecast["weather"][0]["description"]
+                            .as_str()
+                            .unwrap()
+                            .to_string();
+                        let temperature = forecast["main"]["temp"].as_f64().unwrap();
+                        let humidity = forecast["main"]["humidity"].as_i64().unwrap();
+                        let wind = forecast["wind"]["speed"].as_f64().unwrap();
+
+                        let weather_data = WeatherData {
+                            city,
+                            weather,
+                            description,
+                            temperature,
+                            humidity,
+                            wind,
+                        };
+
+                        return Ok(weather_data);
+                    }
+                    Err(err) => {
+                        println!("Error in the parsing of the json response: {:?}", err);
+                        return Err(err.into());
+                    }
+                }
+            } else {
+                let error = format!("Error status of the request : {}", api_response.status());
+                return Err(error.into());
+            }
+        }
+        Err(err) => {
+            println!("Error in the request: {:?}", err);
+            return Err(err.into());
+        }
+    }
 }

@@ -57,7 +57,7 @@ async fn display_menu() {
                     match index - 1 {
                         0 => task1(&client, &api_key).await,
                         1 => task2(&client, &api_key).await,
-                        2 => println!("WIP"),
+                        2 => task2_new_city(&client, &api_key).await,
                         _ => task1(&client, &api_key).await,
                     }
                     break;
@@ -150,4 +150,28 @@ async fn task2(client: &Client, api_key: &str) {
         .unwrap();
 
     forecast::print_forecast(forecast_result);
+}
+async fn task2_new_city(client: &Client, api_key: &str) {
+    let mut input = String::new();
+
+    loop {
+        println!("\nWrite down a city to display its weather forecast: ");
+        input.clear();
+        io::stdin().read_line(&mut input).unwrap();
+        println!("");
+        let selected_city = input.trim();
+        let forecast_result =
+            forecast::get_weather_data_unknown(&client, &api_key, &selected_city).await;
+
+        match forecast_result {
+            Ok(forecast) => {
+                forecast::print_forecast(forecast);
+                break;
+            }
+            Err(err) => {
+                println!("{}", err);
+                println!("The city doesn't exist !");
+            }
+        }
+    }
 }
